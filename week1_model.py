@@ -11,6 +11,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 setproctitle.setproctitle("[k4ke] tf_test")
 
+print(tf.test.is_gpu_available())
+
 # load and prepare the MNIST dataset
 mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -113,5 +115,4 @@ for epoch in range(EPOCHS):
         f'Test Loss: {test_loss.result()}. '
         f'Test Accurach: {test_accuracy.result() * 100}'
     )
-
 
