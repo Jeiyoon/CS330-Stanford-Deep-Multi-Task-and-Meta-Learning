@@ -13,7 +13,10 @@ b = tf.Variable(tf.zeros(2, dtype = tf.float32), name = 'b')
 x = [[1., 2., 3.]]
 
 # Gradient tape tracks differentiable operations
-# persistent = True keeps compute graph after tape.gradient
+# "persistent = True" keeps compute graph after tape.gradient
+# tf.reduce_mean: (1/N)Σ[N,i]
+# e.g.) cross-entropy
+# loss = -tf.reduce_mean( T*tf.log(y) + (1-T)*tf.log(1-y) )
 with tf.GradientTape(persistent = True) as tape:
     y = x @ w + b
     loss = tf.reduce_mean(y**2)
