@@ -15,6 +15,8 @@ inputs = tf.random.normal([32, 10, 8])
 
 cell = tf.keras.layers.LSTMCell(4)
 # initialize cell state
+# https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN
+# method that creates a tensor meant to be fed to call() as the initial state, if the user didn't specify any initial state via other means
 state = cell.get_initial_state(batch_size = 32, dtype = tf.float32)
 # process data one at a time
 # inputs[:,0]: (32, 8) <- first one of em
