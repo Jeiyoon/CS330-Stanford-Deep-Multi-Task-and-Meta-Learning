@@ -18,6 +18,7 @@ cell = tf.keras.layers.LSTMCell(4)
 state = cell.get_initial_state(batch_size = 32, dtype = tf.float32)
 # process data one at a time
 # inputs[:,0]: (32, 8) <- first one of em
+# https://rfriend.tistory.com/290
 output, state = cell(inputs[:, 0], state)
 
 print(output.shape)
