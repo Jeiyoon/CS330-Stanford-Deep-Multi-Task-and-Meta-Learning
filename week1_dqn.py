@@ -1,3 +1,8 @@
+"""
+TO DO:
+colab -> ssh
+"""
+
 # https://www.tensorflow.org/agents
 
 import tensorflow as tf
