@@ -34,17 +34,21 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
     Takes a set of character folders and labels and returns paths to image files
     paired with labels
     Args:
-        paths: A list of character folders -> select_classes
+        paths: A list of character folders -> select_classes -> N
         labels: list or numpy array of same length as paths -> one_hot_labels
-        nb_samples: Number of images to retrieve per character -> self.num_samples_per_class
+        nb_samples: Number of images to retrieve per character -> self.num_samples_per_class -> K
     Returns:
         List of (label, image_path) tuples
     """
+    # nb_samples = 2
     if nb_samples is not None:
         sampler = lambda x: random.sample(x, nb_samples)
     else:
         sampler = lambda x: x
 
+    # labels: [[1,0,0,0,0], ...]
+    # paths: ['./omniglot_resized/Grantha/character19', ...]
+    # len(images_labels) = 5 * 2(nb_samples) = 10
     images_labels = [(i, os.path.join(path, image))
                     for i, path in zip(labels, paths)
                     for image in sampler(os.listdir(path))]
@@ -55,6 +59,7 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
         random.shuffle(images_labels)
 
     return images_labels
+
 
 # test_images.append(image_file_to_array(img_path, 784))
 def image_file_to_array(filename, dim_input):
@@ -68,8 +73,9 @@ def image_file_to_array(filename, dim_input):
     """
     import imageio
     # misc.imread(filename)
-    image = imageio.imread(filename)
-    image = image.reshape([dim_input])
+
+    image = imageio.imread(filename) # (28, 28)
+    image = image.reshape([dim_input]) # (784,)
     image = image.astype(np.float32) / 255.0
     image = 1.0 - image
 
@@ -90,6 +96,7 @@ class DataGenerator(object):
         self.num_samples_per_class = num_samples_per_class
         self.num_classes = num_classes
 
+        # data_folder = './omniglot_resized'
         data_folder = config.get('data_folder', './omniglot_resized')
         self.img_size = config.get('img_size', (28, 28))
 
@@ -98,6 +105,7 @@ class DataGenerator(object):
         self.dim_input = np.prod(self.img_size)
         self.dim_output = self.num_classes
 
+        # e.g.) character_folders = ['./omniglot_resized/Hebrew/character05', ...]
         character_folders = [os.path.join(data_folder, family, character)
                              for family in os.listdir(data_folder)
                              if os.path.isdir(os.path.join(data_folder, family))
@@ -146,6 +154,7 @@ class DataGenerator(object):
 
             # random.sample
             # https://docs.python.org/3/library/random.html
+            # e.g. select_classes = ['./omniglot_resized/Grantha/character19', ...]
             select_classes = random.sample(folders, self.num_classes)
 
             # [2. Load K images per class and collect the associated labels]
@@ -159,6 +168,10 @@ class DataGenerator(object):
 
             for sample_idx, (label, img_path) in enumerate(labels_images):
                 # Take the first image of each class (index is 0, N, 2N, ...) to test_set
+                # 0 % 2 = 0
+                # 1 % 2 = 1
+                # 2 % 2 = 0
+                # and so on
                 if sample_idx % self.num_samples_per_class == 0:
                     test_images.append(image_file_to_array(img_path, 784))
                     test_labels.append(label)
@@ -197,9 +210,10 @@ def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1
     np.random.seed(random_seed)
     tf.random.set_seed(random_seed)
 
+    # def __init__(self, num_classes, num_samples_per_class, config = {}):
     data_generator = DataGenerator(num_classes, num_samples + 1)
 
-    # just for debug. should delete this
+    # should delete
     _, _ = data_generator.sample_batch('train', meta_batch_size)
 
 if __name__ == "__main__":
