@@ -1,12 +1,7 @@
-# https://www.tensorflow.org/guide/keras/rnn?hl=ko
-
-import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-
-import os
+# author: https://github.com/Luvata
+# reimplementation and comments: jeiyoon
 import setproctitle
+import os
 
 # pip install googledrivedownloader
 from google_drive_downloader import GoogleDriveDownloader as gdd
@@ -15,6 +10,12 @@ import numpy as np
 import random
 import tensorflow as tf
 from scipy import misc
+import matplotlib.pyplot as plt
+
+
+import imageio
+from sklearn.utils import shuffle
+
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -56,6 +57,25 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
         random.shuffle(images_labels)
 
     return images_labels
+
+# test_images.append(image_file_to_array(img_path, 784))
+def image_file_to_array(filename, dim_input):
+    """
+    Takes an image path and returns numpy array
+    Args:
+        filename: Image filename -> img_path
+        dim_input: Flattened shape of image -> 784
+    Returns:
+        1 channel image
+    """
+    import imageio
+    # misc.imread(filename)
+    image = imageio.imread(filename)
+    image = image.reshape([dim_input])
+    image = image.astype(np.float32) / 255.0
+    image = 1.0 - image
+
+    return image
 
 class DataGenerator(object):
     """
@@ -140,16 +160,47 @@ class DataGenerator(object):
 
             for sample_idx, (label, img_path) in enumerate(labels_images):
                 # Take the first image of each class (index is 0, N, 2N, ...) to test_set
+                if sample_idx % self.num_samples_per_class == 0:
+                    test_images.append(image_file_to_array(img_path, 784))
+                    test_labels.append(label)
+                else:
+                    train_images.append(image_file_to_array(img_path, 784))
+                    train_labels.append(label)
 
+            # Now we shuffle train & test, then concatenate them together
+            train_images, train_labels = shuffle(train_images, train_labels)
+            test_images, test_labels = shuffle(test_images, test_labels)
 
+            # [3. Format the data and return two numpy matrices]
+            # One of flatted images with shape [B, K, N, 784]
+            # and one of one-hot labels [B, K, N, N]
 
+            # np.vstack
+            # https://rfriend.tistory.com/352
+            # [K, N, N]
+            labels = np.vstack(train_labels + test_labels).reshape((-1, self.num_classes, self.num_classes))
+            # [K, N, 784]
+            images = np.vstack(train_images + test_images).reshape((self.num_samples_per_class, self.num_classes, -1))
 
+            all_image_batches.append(images)
+            all_label_batches.append(labels)
 
-
-
+        # 3. Return two numpy array [B, K, N, 784] and one-hot labels [B, K, N, N]
+        # np.stack
+        # https://everyday-image-processing.tistory.com/87
+        all_image_batches = np.stack(all_image_batches)
+        all_label_batches = np.stack(all_label_batches)
 
         return all_image_batches.astype(np.float32), all_label_batches.astype(np.float32)
 
+def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234):
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    tf.random.set_seed(random_seed)
 
+    data_generator = DataGenerator(num_classes, num_samples + 1)
+
+if __name__ == "__main__":
+    results = main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234)
 
 
