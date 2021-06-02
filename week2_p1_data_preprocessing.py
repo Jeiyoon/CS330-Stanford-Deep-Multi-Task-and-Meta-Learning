@@ -18,7 +18,7 @@ from sklearn.utils import shuffle
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-setproctitle.setproctitle("[k4ke] meta_learning")
+setproctitle.setproctitle("[k4ke] meta_learning_test")
 
 # Need to download the Omniglot dataset
 if not os.path.isdir('./omniglot_resized'):
@@ -180,6 +180,8 @@ class DataGenerator(object):
                     train_labels.append(label)
 
             # Now we shuffle train & test, then concatenate them together
+            # sklearn.utils.shuffle
+            # https://www.delftstack.com/ko/howto/python/python-shuffle-array/
             train_images, train_labels = shuffle(train_images, train_labels)
             test_images, test_labels = shuffle(test_images, test_labels)
 
@@ -187,8 +189,22 @@ class DataGenerator(object):
             # One of flatted images with shape [B, K, N, 784]
             # and one of one-hot labels [B, K, N, N]
 
+            ##########################################################################################
+            # Q) train/ test 기껏 나눠놓고 왜 다시 합침?
+            ##########################################################################################
+
+            ##########################################################################################
+            # Q) 데이터 전처리 이렇게 하는 이유?
+            ##########################################################################################
+
             # np.vstack
             # https://rfriend.tistory.com/352
+            # https://domybestinlife.tistory.com/151
+            # K: # of samples per class
+            # N: # of classes
+            # e.g.) K = 2, N = 5
+            # len(train_labels + test_labels) = 5 + 5 = 10
+            # len(train_images + test_images) = 5 + 5 = 10
             # [K, N, N]
             labels = np.vstack(train_labels + test_labels).reshape((-1, self.num_classes, self.num_classes))
             # [K, N, 784]
