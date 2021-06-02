@@ -12,10 +12,8 @@ import tensorflow as tf
 from scipy import misc
 import matplotlib.pyplot as plt
 
-
 import imageio
 from sklearn.utils import shuffle
-
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -145,6 +143,7 @@ class DataGenerator(object):
         for batch_idx in range(batch_size):
             # [1. Sample N different classes]
             # from either the specified train, test or validation folders
+
             # random.sample
             # https://docs.python.org/3/library/random.html
             select_classes = random.sample(folders, self.num_classes)
@@ -199,6 +198,9 @@ def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1
     tf.random.set_seed(random_seed)
 
     data_generator = DataGenerator(num_classes, num_samples + 1)
+
+    # just for debug. should delete this
+    _, _ = data_generator.sample_batch('train', meta_batch_size)
 
 if __name__ == "__main__":
     results = main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234)
