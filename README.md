@@ -8,5 +8,7 @@
 
 - [Universal Language Model Fine-tuning for Text Classification (Howard et al., 2018 ACL)](https://arxiv.org/pdf/1801.06146.pdf)
 
+- [One-shot Learning with Memory-Augmented Neural Networks (Santoro et al., 2016 arXiv)](https://arxiv.org/pdf/1605.06065.pdf)
+
 - 
 
