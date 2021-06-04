@@ -10,5 +10,8 @@
 
 - [One-shot Learning with Memory-Augmented Neural Networks (Santoro et al., 2016 arXiv)](https://arxiv.org/pdf/1605.06065.pdf)
 
-- 
+- [Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks (Finn et al., 2017 ICML)](https://arxiv.org/pdf/1703.03400.pdf)
 
+- [Meta-Learning with Differentiable Convex Optimization (Lee et al., 2019 CVPR)](https://arxiv.org/pdf/1904.03758.pdf)
+
+- 
