@@ -217,6 +217,7 @@ class DataGenerator(object):
 class MANN(tf.keras.Model):
     # num_classes: N
     # samples_per_class: K
+    # The layers to use have already been defined for you in here
     def __init__(self, num_classes, samples_per_class):
         super(MANN, self).__init__()
         self.num_classes = num_classes
@@ -233,6 +234,7 @@ class MANN(tf.keras.Model):
         Returns:
             [B, K + 1, N, N] predictions
         """
+        # 1. Take in image tensor of shape [B, K+1, N, 784] and a label tensor of shape [B, K+1, N, N]
         B, K, N, D = input_images.shape
         images = tf.reshape(input_images, (-1, K * N, D))
         labels = tf.reshape(tf.concat(
@@ -248,7 +250,23 @@ class MANN(tf.keras.Model):
         return out
 
     def loss_function(self, preds, labels):
-        pass
+        # 2. Takes as input the [B, K + 1, N, N] labels and [B, K + 1, N, N]
+        # and computes the cross entropy loss only on the N test images
+        """
+        Computes MANN loss
+        Args:
+            preds: [B, K+1, N, N] network output
+            labels: [B, K+1, N, N] labels
+        Returns:
+            scalar loss
+        """
+        pred_last_N_steps = preds[:, -1:]
+        labels_last_N_steps = labels[:, -1:]
+
+        loss = tf.losses.softmax_cross_entropy(labels_last_N_steps, pred_last_N_steps)
+        loss = tf.reduce_mean(loss)
+
+        return loss
 
 
 
@@ -262,7 +280,9 @@ def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1
     data_generator = DataGenerator(num_classes, num_samples + 1)
 
     # should delete
-    _, _ = data_generator.sample_batch('train', meta_batch_size)
+    # _, _ = data_generator.sample_batch('train', meta_batch_size)
+
+    o = MANN(num_classes, num_samples + 1)
 
 if __name__ == "__main__":
     results = main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234)
