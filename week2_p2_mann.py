@@ -9,6 +9,7 @@ from google_drive_downloader import GoogleDriveDownloader as gdd
 import numpy as np
 import random
 import tensorflow as tf
+from tensorflow.keras import layers
 from scipy import misc
 import matplotlib.pyplot as plt
 
@@ -220,6 +221,45 @@ class DataGenerator(object):
         all_label_batches = np.stack(all_label_batches)
 
         return all_image_batches.astype(np.float32), all_label_batches.astype(np.float32)
+
+class MANN(tf.keras.Model):
+    # num_classes: N
+    # samples_per_class: K
+    def __init__(self, num_classes, samples_per_class):
+        super(MANN, self).__init__()
+        self.num_classes = num_classes
+        self.samples_per_class = samples_per_class
+        self.layer1 = tf.keras.layers.LSTM(128, return_sequences = True)
+        self.layer2 = tf.keras.layers.LSTM(num_classes, return_sequences = True)
+
+    def call(self, input_images, input_labels):
+        """
+        MANN
+        Args:
+            input_images: [B, K + 1, N, 784] flattened images
+            labels: [B, K + 1, N, N] ground truth labels
+        Returns:
+            [B, K + 1, N, N] predictions
+        """
+        B, K, N, D = input_images.shape
+        images = tf.reshape(input_images, (-1, K * N, D))
+        labels = tf.reshape(tf.concat(
+                            (input_labels[:, :-1], tf.zeros_like(input_labels[:, -1:])), axis = 1),
+                            (-1, K * N, N)
+                            )
+
+        inp = tf.concat((images, labels), -1)
+        out = self.layer1(inp)
+        out = self.layer2(out)
+        out = tf.reshape(out, (-1, K, N, N))
+
+        return out
+
+    def loss_function(self, preds, labels):
+        pass
+
+
+
 
 def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234):
     random.seed(random_seed)
