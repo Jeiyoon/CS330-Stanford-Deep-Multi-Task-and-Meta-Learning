@@ -14,4 +14,8 @@
 
 - [Meta-Learning with Differentiable Convex Optimization (Lee et al., 2019 CVPR)](https://arxiv.org/pdf/1904.03758.pdf)
 
+- [Matching Networks for One Shot Learning (Vinyals et al., 2016 NIPS)](https://arxiv.org/pdf/1606.04080.pdf)
+
+- [Prototypical Networks for Few-shot Learning (Snell et al., 2017 NIPS)](https://arxiv.org/pdf/1703.05175.pdf)
+
 - 
