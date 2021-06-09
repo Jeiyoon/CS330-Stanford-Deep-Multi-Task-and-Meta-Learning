@@ -29,6 +29,8 @@ if not os.path.isdir('./omniglot_resized'):
 
 assert os.path.isdir('./omniglot_resized')
 
+decoder = lambda x: image if type(image) is not bytes else image.decode('UTF-8')
+
 # labels_images = get_images(select_classes, one_hot_labels, self.num_samples_per_class, shuffle=False)
 def get_images(paths, labels, nb_samples = None, shuffle = True):
     """
@@ -50,7 +52,7 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
     # labels: [[1,0,0,0,0], ...]
     # paths: ['./omniglot_resized/Grantha/character19', ...]
     # len(images_labels) = 5 * 2(nb_samples) = 10
-    images_labels = [(i, os.path.join(path, image))
+    images_labels = [(i, os.path.join(path, image.decode('UTF-8')))
                     for i, path in zip(labels, paths)
                     for image in sampler(os.listdir(path))]
 
@@ -114,9 +116,9 @@ class DataGenerator(object):
                              if os.path.isdir(os.path.join(data_folder, family, character))
                              ]
 
-        random.seed(1)
+        np.random.seed(1)
         # random.shuffle: list shuffle
-        random.shuffle(character_folders)
+        np.random.shuffle(character_folders)
 
         num_val = 100
         num_train = 1100
@@ -190,6 +192,14 @@ class DataGenerator(object):
             # One of flatted images with shape [B, K, N, 784]
             # and one of one-hot labels [B, K, N, N]
 
+            ##########################################################################################
+            # Q) train/ test 기껏 나눠놓고 왜 다시 합침?
+            ##########################################################################################
+
+            ##########################################################################################
+            # Q) 데이터 전처리 이렇게 하는 이유?
+            ##########################################################################################
+
             # np.vstack
             # https://rfriend.tistory.com/352
             # https://domybestinlife.tistory.com/151
@@ -235,6 +245,10 @@ class MANN(tf.keras.Model):
             [B, K + 1, N, N] predictions
         """
         # 1. Take in image tensor of shape [B, K+1, N, 784] and a label tensor of shape [B, K+1, N, N]
+        # [Hint] Remember to pass zeros!!!, not the ground truth labels for the final N examples
+
+        # images: [B, K, N, 784] -> [B, K + 1, N, 784]
+        # labels: [B, K, N, N] -> [B, K + 1, N, N]
         B, K, N, D = input_images.shape
         images = tf.reshape(input_images, (-1, K * N, D))
         labels = tf.reshape(tf.concat(
@@ -253,23 +267,49 @@ class MANN(tf.keras.Model):
         # 2. Takes as input the [B, K + 1, N, N] labels and [B, K + 1, N, N]
         # and computes the cross entropy loss only on the N test images
         """
-        Computes MANN loss
-        Args:
-            preds: [B, K+1, N, N] network output
-            labels: [B, K+1, N, N] labels
-        Returns:
-            scalar loss
+        # Computes MANN loss
+        # Args:
+        #     preds: [B, K+1, N, N] network output
+        #     labels: [B, K+1, N, N] labels
+        # Returns:
+        #     scalar loss
         """
-        pred_last_N_steps = preds[:, -1:]
-        labels_last_N_steps = labels[:, -1:]
+        # pred_last_N_steps = preds[:, -1:]
+        # labels_last_N_steps = labels[:, -1:]
 
-        loss = tf.losses.softmax_cross_entropy(labels_last_N_steps, pred_last_N_steps)
+        # tf.reduce_mean()
+        # https://webnautes.tistory.com/1235
+
+        # tf.losses.softmax_cross_entropy
+        # https://docs.w3cub.com/tensorflow~python/tf/losses/softmax_cross_entropy
+        # https://www.tensorflow.org/api_docs/python/tf/compat/v1/losses/softmax_cross_entropy
+        # loss = tf.compat.v1.losses.softmax_cross_entropy(labels_last_N_steps, pred_last_N_steps)
+        # loss = tf.keras.losses.categorical_crossentropy(labels_last_N_steps, pred_last_N_steps, from_logits=True)
+        loss = tf.keras.losses.categorical_crossentropy(y_true = labels[:, -1:, :, :],
+                                                        y_pred = preds[:, -1:, :, :],
+                                                        from_logits = True)
         loss = tf.reduce_mean(loss)
 
         return loss
 
+@tf.function
+# train_step(i, l, o, optim)
+def train_step(images, labels, model, optim, eval = False):
+    # Gradient tape tracks differentiable operations
+    # "persistent = True" keeps compute graph after tape.gradient
+    # o = MANN(num_classes, num_samples + 1)
+    # num_classes: Number of classes for classification -> N
+    # num_samples -> K
+    with tf.GradientTape() as tape:
+        predictions = model(images, labels)
+        # loss = loss_function(predictions, labels)
+        loss = model.loss_function(predictions, labels)
 
+    if not eval:
+        gradients = tape.gradient(loss, model.trainable_variables)
+        optim.apply_gradients(zip(gradients, model.trainable_variables))
 
+    return predictions, loss
 
 def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234):
     random.seed(random_seed)
@@ -279,12 +319,30 @@ def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1
     # def __init__(self, num_classes, num_samples_per_class, config = {}):
     data_generator = DataGenerator(num_classes, num_samples + 1)
 
-    # should delete
-    # _, _ = data_generator.sample_batch('train', meta_batch_size)
-
     o = MANN(num_classes, num_samples + 1)
+    optim = tf.keras.optimizers.Adam(learning_rate = 0.001)
+
+    for step in range(25000):
+        i, l = data_generator.sample_batch('train', meta_batch_size)
+        _, ls = train_step(i, l, o, optim)
+
+        if (step + 1) % 100 == 0:
+            print("*" * 5 + "Iter " + str(step + 1) + "*" * 5)
+            i, l = data_generator.sample_batch("test", 100)
+            pred, tls = train_step(i, l, o, optim, eval = True)
+            print("train Loss: ", ls.numpy(), "Test Loss: ", tls.numpy())
+
+            # [B, K + 1, N, N]
+            pred = tf.reshape(pred, [-1, num_samples + 1, num_classes, num_classes])
+            pred = tf.math.argmax(pred[:, -1, :, :], axis = 2)
+            l = tf.math.argmax(l[:, -1, :, :], axis = 2)
+            print("Test Accuracy", tf.reduce_mean(tf.cast(tf.math.equal(pred, l), tf.float32)).numpy())
+
+
+
 
 if __name__ == "__main__":
     results = main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234)
+
 
 
