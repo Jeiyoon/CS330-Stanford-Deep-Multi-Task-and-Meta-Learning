@@ -1,4 +1,4 @@
-# author: https://github.com/Luvata
+# author: https://github.com/LecJackS
 # reimplementation and comments: jeiyoon
 import setproctitle
 import os
@@ -9,11 +9,12 @@ from google_drive_downloader import GoogleDriveDownloader as gdd
 import numpy as np
 import random
 import tensorflow as tf
-from scipy import misc
+from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 
 import imageio
 from sklearn.utils import shuffle
+
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -28,7 +29,9 @@ if not os.path.isdir('./omniglot_resized'):
 
 assert os.path.isdir('./omniglot_resized')
 
-# labels_images = get_images(select_classes, one_hot_labels, self.num_samples_per_class, shuffle=False)
+decoder = lambda x: image if type(image) is not bytes else image.decode('UTF-8')
+
+# get_images(n_classes, range(N), nb_samples = K, shuffle = False)
 def get_images(paths, labels, nb_samples = None, shuffle = True):
     """
     Takes a set of character folders and labels and returns paths to image files
@@ -49,7 +52,7 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
     # labels: [[1,0,0,0,0], ...]
     # paths: ['./omniglot_resized/Grantha/character19', ...]
     # len(images_labels) = 5 * 2(nb_samples) = 10
-    images_labels = [(i, os.path.join(path, image))
+    images_labels = [(i, os.path.join(path, image.decode('UTF-8')))
                     for i, path in zip(labels, paths)
                     for image in sampler(os.listdir(path))]
 
@@ -61,7 +64,7 @@ def get_images(paths, labels, nb_samples = None, shuffle = True):
     return images_labels
 
 
-# test_images.append(image_file_to_array(img_path, 784))
+# image_file_to_array(im, I)
 def image_file_to_array(filename, dim_input):
     """
     Takes an image path and returns numpy array
@@ -71,9 +74,6 @@ def image_file_to_array(filename, dim_input):
     Returns:
         1 channel image
     """
-    import imageio
-    # misc.imread(filename)
-
     image = imageio.imread(filename) # (28, 28)
     image = image.reshape([dim_input]) # (784,)
     image = image.astype(np.float32) / 255.0
@@ -113,9 +113,9 @@ class DataGenerator(object):
                              if os.path.isdir(os.path.join(data_folder, family, character))
                              ]
 
-        random.seed(1)
+        np.random.seed(1)
         # random.shuffle: list shuffle
-        random.shuffle(character_folders)
+        np.random.shuffle(character_folders)
 
         num_val = 100
         num_train = 1100
@@ -128,7 +128,7 @@ class DataGenerator(object):
             num_train + num_val:
         ]
 
-    def sample_batch(self, batch_type, batch_size):
+    def sample_batch(self, batch_type, batch_size, shuffle = True):
         """
         Samples a batch for training, validation, or testing
         Args:
@@ -145,87 +145,110 @@ class DataGenerator(object):
         else:
             folders = self.metatest_character_folders
 
+        # images: [B, K, N, 784] = [B, K, N, I]
+        # labels: [B, K, N, N]
+        B = batch_size
+        K = self.num_samples_per_class
+        N = self.num_classes
+        I = self.dim_input
+
         all_image_batches = []
         all_label_batches = []
 
-        for batch_idx in range(batch_size):
+        for batch in range(B):
             # [1. Sample N different classes]
             # from either the specified train, test or validation folders
 
-            # random.sample
-            # https://docs.python.org/3/library/random.html
-            # e.g. select_classes = ['./omniglot_resized/Grantha/character19', ...]
-            select_classes = random.sample(folders, self.num_classes)
+            # e.g. n_classes = ['./omniglot_resized/Grantha/character19', ...]
+            n_classes = np.random.choice(folders, N, replace=False)
 
             # [2. Load K images per class and collect the associated labels]
-            one_hot_labels = np.identity(self.num_classes)
             # DO NOT SHUFFLE THE ORDER OF EXAMPLES ACROSS CLASSES
             # IT MAKES THE OPTIMIZATION MUCH HARDER
-            labels_images = get_images(select_classes, one_hot_labels, self.num_samples_per_class, shuffle = False)
 
-            train_images, train_labels = [], []
-            test_images, test_labels = [], []
+            # e.g.) [(0, './omniglot_resized/ULOG/character14/1611_17.png'), ...]
+            tuples = get_images(n_classes, range(N), nb_samples = K, shuffle = False)
 
-            for sample_idx, (label, img_path) in enumerate(labels_images):
-                # Take the first image of each class (index is 0, N, 2N, ...) to test_set
-                # 0 % 2 = 0
-                # 1 % 2 = 1
-                # 2 % 2 = 0
-                # and so on
-                if sample_idx % self.num_samples_per_class == 0:
-                    test_images.append(image_file_to_array(img_path, 784))
-                    test_labels.append(label)
-                else:
-                    train_images.append(image_file_to_array(img_path, 784))
-                    train_labels.append(label)
+            # I = self.dim_input = 784 -> images: [B, K, N, 784] = [B, K, N, I]
+            images = [image_file_to_array(im, I) for lb, im in tuples] # images: [(784,), (784), ... ] / len = 2 * 5
+            images = np.stack(images) # shape: (10, 784) / ndarray
+            images = np.reshape(images, (N, K, I)) # shape: (5, 2, 784) / ndarray / (N, K, I)
 
-            # Now we shuffle train & test, then concatenate them together
-            # sklearn.utils.shuffle
-            # https://www.delftstack.com/ko/howto/python/python-shuffle-array/
-            train_images, train_labels = shuffle(train_images, train_labels)
-            test_images, test_labels = shuffle(test_images, test_labels)
+            # e.g.) labels = [0 0 1 1 2 2 3 3 4 4]
+            labels = np.asarray([lb for lb, im in tuples]) # shape: (10, ) / ndarray
+            labels = np.reshape(labels, (N, K)) # shape: (5, 2) / e.g.) [[0 0], [1 1], [2 2], [3 3], [4 4]]
+            labels = np.eye(N)[labels] # shape: (5, 2, 5) / (N, K, N) / e.g.) [[[1. 0. 0. 0. 0.],  [1. 0. 0. 0. 0.]],, [[0. 1. 0. 0. 0.],  [0. 1. 0. 0. 0.]],, [[0. 0. 1. 0. 0.],  [0. 0. 1. 0. 0.]],, [[0. 0. 0. 1. 0.],  [0. 0. 0. 1. 0.]],, [[0. 0. 0. 0. 1.],  [0. 0. 0. 0. 1.]]]
 
-            # [3. Format the data and return two numpy matrices]
-            # One of flatted images with shape [B, K, N, 784]
-            # and one of one-hot labels [B, K, N, N]
-
-
-            # np.vstack
-            # https://rfriend.tistory.com/352
-            # https://domybestinlife.tistory.com/151
-            # K: # of samples per class
-            # N: # of classes
-            # e.g.) K = 2, N = 5
-            # len(train_labels + test_labels) = 5 + 5 = 10
-            # len(train_images + test_images) = 5 + 5 = 10
-            # [K, N, N]
-            labels = np.vstack(train_labels + test_labels).reshape((-1, self.num_classes, self.num_classes))
-            # [K, N, 784]
-            images = np.vstack(train_images + test_images).reshape((self.num_samples_per_class, self.num_classes, -1))
+            labels = np.swapaxes(labels, 0, 1) # [K, N, I]
+            images = np.swapaxes(images, 0, 1) # [K, N, N]
 
             all_image_batches.append(images)
             all_label_batches.append(labels)
 
-        # 3. Return two numpy array [B, K, N, 784] and one-hot labels [B, K, N, N]
-        # np.stack
-        # https://everyday-image-processing.tistory.com/87
         all_image_batches = np.stack(all_image_batches)
         all_label_batches = np.stack(all_label_batches)
 
-        return all_image_batches.astype(np.float32), all_label_batches.astype(np.float32)
-
-def main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234):
-    random.seed(random_seed)
-    np.random.seed(random_seed)
-    tf.random.set_seed(random_seed)
-
-    # def __init__(self, num_classes, num_samples_per_class, config = {}):
-    data_generator = DataGenerator(num_classes, num_samples + 1)
-
-    # should delete
-    _, _ = data_generator.sample_batch('train', meta_batch_size)
+        return all_image_batches, all_label_batches
+    
 
 if __name__ == "__main__":
-    results = main(num_classes = 5, num_samples = 1, meta_batch_size = 16, random_seed = 1234)
+    num_classes = 5 # N
+    num_samples_per_class = 3 # K
+
+    data = DataGenerator(num_classes, num_samples_per_class)
+
+    images, labels = data.sample_batch('train', batch_size = 2, shuffle = False)
+
+    print("Batch of images of shape: ", images.shape) # B K N I
+    print("Batch of labels of shape: ", labels.shape) # B K N N
+
+    # for i in range(num_classes):
+    #     print(labels[0, 0, i])
+
+    # print("First meta-batch")
+    print("Second meta-batch")
+
+    plt.figure(figsize = (16, 16))
+    count = 0
+
+    for cl in range(num_classes):
+        for sa in range(num_samples_per_class):
+            plt.subplot(num_classes, num_samples_per_class, count + 1)
+            plt.title("Class {} - Example {}".format(cl, sa))
+            # image = images[0, sa, cl].reshape((28, 28))
+            image = images[1, sa, cl].reshape((28, 28))
+            plt.imshow(image)
+            plt.axis('off')
+            count += 1
+    plt.show()
+
+    print("# of samples per class: ", data.num_samples_per_class)
+    print("# of classes: ", data.num_classes)
+    print("image size: ", data.img_size)
+    print("input dimension: ", data.dim_input)
+    print("output dimension: ", data.dim_output)
+
+    print("# of meta train folders: ", len(data.metatrain_characer_folders))
+    print("# of meta val folders: ", len(data.metaeval_character_folders))
+    print("# of meta test folders: ", len(data.metatest_character_folders))
+
+    print(data.metatrain_characer_folders[0:5])
+    print(data.metatest_character_folders[-5:])
+
+    # show image paths
+    classes = np.asarray(data.metatest_character_folders[0:3])
+    labels = [0, 1, 2]
+    print(get_images(classes, labels, 1))
+
+    # extracting family name
+    print([os.path.basename(os.path.split(family)[0]) for family in data.metatest_character_folders[0:3]])
+
+    # plot a characer directly from file
+    plt.imshow(image_file_to_array('./omniglot_resized/N_Ko/character12/0815_17.png', 784).reshape((28, 28)))
+    plt.show()
+
+
+
+
 
 
