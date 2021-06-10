@@ -10,13 +10,23 @@ import numpy as np
 import random
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
 import imageio
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+import tensorboard
+
+import datetime
+
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+mirrored_strategy = tf.distribute.MirroredStrategy(devices = ["/gpu:0",
+                                                              "/gpu:1",
+                                                              "/gpu:2",
+                                                              "/gpu:3"])
 
 setproctitle.setproctitle("[k4ke] meta_learning_test")
+
+# multi gpu
+# tf.debugging.set_log_device_placement(True)
 
 # Need to download the Omniglot dataset
 if not os.path.isdir('./omniglot_resized'):
@@ -198,6 +208,7 @@ class MANN(tf.keras.Model):
         self.layer1 = tf.keras.layers.LSTM(128, return_sequences = True)
         self.layer2 = tf.keras.layers.LSTM(num_classes, return_sequences = True)
 
+    # subclassing
     def call(self, input_images, input_labels):
         """
         MANN
@@ -214,11 +225,18 @@ class MANN(tf.keras.Model):
         # labels: [B, K, N, N] -> [B, K + 1, N, N]
         B, K, N, D = input_images.shape
 
+        # input_labels: (B, K, N, N)
+        # input_labels[:, -1:, :, :] : (B, K - 1, N, N)
+        # in_zero: (B, K, N, N) / (16, 2, 2, 2)
         in_zero = input_labels - input_labels[:, -1:, :, :]
+        # input: (B, K, N, I + N) / (16, 2, 2, 786)
         input = tf.keras.layers.Concatenate(axis = 3)([input_images, in_zero])
+        # input: (B, K * N, N + I) / (16, 4, 786)
         input = tf.reshape(input, [-1, K * N, N + 28*28])
 
+        # out: (B, K * N, N) / (16, 4, 2)
         out = self.layer2(self.layer1(input))
+        # out: (B, K, N, N) / (16, 2, 2, 2)
         out = tf.reshape(out, [-1, K, N, N])
 
         return out
@@ -282,6 +300,15 @@ def main(num_classes, num_samples, meta_batch_size, random_seed):
     # def __init__(self, num_classes, num_samples_per_class, config = {}):
     data_generator = DataGenerator(num_classes, num_samples + 1)
 
+    # Set up logging
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    logdir = "logs/func/%s" % stamp
+    writer = tf.summary.create_file_writer(logdir)
+
+    tf.summary.trace_on(
+        graph = True, profiler = True
+    )
+
     o = MANN(num_classes, num_samples + 1)
     optim = tf.keras.optimizers.Adam(learning_rate = 0.001)
 
@@ -301,16 +328,25 @@ def main(num_classes, num_samples, meta_batch_size, random_seed):
             pred, tls = train_step(i, l, o, optim, eval = True)
             print("train Loss: ", ls.numpy(), "Test Loss: ", tls.numpy())
 
-            # [B, K + 1, N, N]
+            # pred: [B, K + 1, N, N] / (100, 2, 2, 2)
             pred = tf.reshape(pred, [-1, num_samples + 1, num_classes, num_classes])
+            # pred: (B, N) / (100, 2) / pred results
             pred = tf.math.argmax(pred[:, -1, :, :], axis = 2)
+            # tf.math.argmax: Returns the index with the largest value across axes of a tensor.
+            # https://www.tensorflow.org/api_docs/python/tf/math/argmax
             l = tf.math.argmax(l[:, -1, :, :], axis = 2)
             print("Test Accuracy", tf.reduce_mean(tf.cast(tf.math.equal(pred, l), tf.float32)).numpy())
 
+    with writer.as_default():
+        tf.summary.trace_export(
+            name = "my_func_trace",
+            step = 0,
+            profiler_outdir = logdir
+        )
 
 if __name__ == "__main__":
-    num_classes = 2 # N
-    num_samples_per_class = 1 # K
+    num_classes = 5 # N
+    num_samples_per_class = 4 # K
 
     data = DataGenerator(num_classes, num_samples_per_class)
 
