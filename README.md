@@ -1,6 +1,6 @@
 # cs330: Deep Multi-Task and Meta Learning
 
-0. Tensorflow version == 2.5.0
+0. Tensorflow version == 2.5.0 (homeworks are implemented using 2.5.0 version)
 
 1. url: https://cs330.stanford.edu/
 
