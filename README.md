@@ -20,4 +20,10 @@
 
 - [Prototypical Networks for Few-shot Learning (Snell et al., 2017 NIPS)](https://arxiv.org/pdf/1703.05175.pdf)
 
+- [META-LEARNING WITHOUT MEMORIZATION (Yin et al., 2020 ICLR)](https://arxiv.org/pdf/1912.03820.pdf)
+
+- [Conditional Neural Processes (Garnelo et al., 2018 ICML)](https://arxiv.org/pdf/1807.01613.pdf)
+
+- [META-LEARNING PROBABILISTIC INFERENCE FOR PREDICTION (Gordon and Bronskill et al., 2019 ICLR)](https://arxiv.org/pdf/1805.09921.pdf)
+
 - 
