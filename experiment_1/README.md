@@ -15,6 +15,6 @@
 ![result3](./imgs/result_N4_K1.png)
 
 
-### 2. N = 5 / K = 4
+### 4. N = 5 / K = 4
 
 ![result4](./imgs/result_N5_K4.png)
