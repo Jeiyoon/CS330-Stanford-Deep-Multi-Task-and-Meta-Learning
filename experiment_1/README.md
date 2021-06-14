@@ -8,7 +8,6 @@
 
 ### 2. N = 3 / K = 1
 
-![result2](./imgs/result_N3_K1.png)
 
 ---
 
