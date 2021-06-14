@@ -4,6 +4,8 @@
 
 ![result1](./imgs/result_N2_K1.png)
 
+~~~
+~~~
 
 ### 2. N = 3 / K = 1
 
