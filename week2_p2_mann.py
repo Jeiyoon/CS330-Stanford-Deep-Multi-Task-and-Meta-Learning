@@ -305,48 +305,54 @@ def main(num_classes, num_samples, meta_batch_size, random_seed):
     logdir = "logs/func/%s" % stamp
     writer = tf.summary.create_file_writer(logdir)
 
-    tf.summary.trace_on(
-        graph = True, profiler = True
-    )
+    # tf.summary.trace_on(
+    #     graph = True, profiler = True
+    # )
 
     o = MANN(num_classes, num_samples + 1)
     optim = tf.keras.optimizers.Adam(learning_rate = 0.001)
 
-    for step in range(25000):
-        # all_image_batches = np.stack(all_image_batches) # [B, K, N, I]
-        # all_label_batches = np.stack(all_label_batches) # [B, K, N, N]
-        # i: (B, K + 1, N, I)
-        # l: (B, K + 1, N, N)
-        i, l = data_generator.sample_batch('train', meta_batch_size)
-        # _: predictions
-        # ls: loss
-        _, ls = train_step(i, l, o, optim)
-
-        if (step + 1) % 100 == 0:
-            print("*" * 5 + "Iter " + str(step + 1) + "*" * 5)
-            i, l = data_generator.sample_batch("test", 100)
-            pred, tls = train_step(i, l, o, optim, eval = True)
-            print("train Loss: ", ls.numpy(), "Test Loss: ", tls.numpy())
-
-            # pred: [B, K + 1, N, N] / (100, 2, 2, 2)
-            pred = tf.reshape(pred, [-1, num_samples + 1, num_classes, num_classes])
-            # pred: (B, N) / (100, 2) / pred results
-            pred = tf.math.argmax(pred[:, -1, :, :], axis = 2)
-            # tf.math.argmax: Returns the index with the largest value across axes of a tensor.
-            # https://www.tensorflow.org/api_docs/python/tf/math/argmax
-            l = tf.math.argmax(l[:, -1, :, :], axis = 2)
-            print("Test Accuracy", tf.reduce_mean(tf.cast(tf.math.equal(pred, l), tf.float32)).numpy())
-
     with writer.as_default():
-        tf.summary.trace_export(
-            name = "my_func_trace",
-            step = 0,
-            profiler_outdir = logdir
-        )
+        for step in range(25000):
+            # all_image_batches = np.stack(all_image_batches) # [B, K, N, I]
+            # all_label_batches = np.stack(all_label_batches) # [B, K, N, N]
+            # i: (B, K + 1, N, I)
+            # l: (B, K + 1, N, N)
+            i, l = data_generator.sample_batch('train', meta_batch_size)
+            # _: predictions
+            # ls: loss
+            _, ls = train_step(i, l, o, optim)
+
+            if (step + 1) % 100 == 0:
+                print("*" * 5 + "Iter " + str(step + 1) + "*" * 5)
+                i, l = data_generator.sample_batch("test", 100)
+                pred, tls = train_step(i, l, o, optim, eval = True)
+                print("train Loss: ", ls.numpy(), "Test Loss: ", tls.numpy())
+
+                # pred: [B, K + 1, N, N] / (100, 2, 2, 2)
+                pred = tf.reshape(pred, [-1, num_samples + 1, num_classes, num_classes])
+                # pred: (B, N) / (100, 2) / pred results
+                pred = tf.math.argmax(pred[:, -1, :, :], axis = 2)
+                # tf.math.argmax: Returns the index with the largest value across axes of a tensor.
+                # https://www.tensorflow.org/api_docs/python/tf/math/argmax
+                l = tf.math.argmax(l[:, -1, :, :], axis = 2)
+                print("Test Accuracy", tf.reduce_mean(tf.cast(tf.math.equal(pred, l), tf.float32)).numpy())
+
+                tf.summary.scalar('train loss', ls.numpy(), step)
+                tf.summary.scalar('test loss', tls.numpy(), step)
+                tf.summary.scalar('test accuracy', tf.reduce_mean(tf.cast(tf.math.equal(pred, l), tf.float32)).numpy(), step)
+                writer.flush()
+
+        # with writer.as_default():
+        #     tf.summary.trace_export(
+        #         name = "my_func_trace",
+        #         step = 0,
+        #         profiler_outdir = logdir
+        #     )
 
 if __name__ == "__main__":
-    num_classes = 5 # N
-    num_samples_per_class = 4 # K
+    num_classes = 2 # N
+    num_samples_per_class = 1 # K
 
     data = DataGenerator(num_classes, num_samples_per_class)
 
