@@ -16,12 +16,12 @@ import tensorboard
 
 import datetime
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-# mirrored_strategy = tf.distribute.MirroredStrategy(devices = ["/gpu:0",
-#                                                               "/gpu:1",
-#                                                               "/gpu:2",
-#                                                               "/gpu:3"])
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+mirrored_strategy = tf.distribute.MirroredStrategy(devices = ["/gpu:0",
+                                                              "/gpu:1",
+                                                              "/gpu:2",
+                                                              "/gpu:3"])
 
 setproctitle.setproctitle("[k4ke] meta_learning_test")
 
@@ -47,4 +47,17 @@ def cross_entropy_loss(pred, label, k_shot):
     return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits = pred,
                                                                   labels = tf.stop_gradient(label)) / k_shot)
 
+def accuracy(labels, predictions):
+    # tf.cast: Casts a tensor to a new type.
+    # https://www.tensorflow.org/api_docs/python/tf/cast?hl=ko
+    # tf.equal: Returns the truth value of (x == y) element-wise.
+    # https://www.tensorflow.org/api_docs/python/tf/math/equal
+    return tf.reduce_mean(tf.cast(tf.equal(labels, predictions), dtype = tf.float32))
 
+"""Convolution layers used by MAML model"""
+seed = 123
+def conv_block(inp, cweight, bweight, bn, activation = tf.nn.relu, residual = False):
+    """Perform, conv, batch, norm, nonlinearity, and max pool"""
+    stride, no_stride = [1, 2, 2, 1], [1, 1, 1, 1]
+
+    conv_output = tf.nn.conv2d(input = inp, filters = cweight, strides = no_stride, padding = 'SAME') + bweight
