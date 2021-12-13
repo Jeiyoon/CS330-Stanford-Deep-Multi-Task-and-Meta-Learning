@@ -31,7 +31,7 @@
 
 ---
 
-![b1](./imgs/first_batch.png)
+<!-- ![b1](./imgs/first_batch.png) -->
 
-![b2](./imgs/second_batch.png)
+<!-- ![b2](./imgs/second_batch.png) -->
 
