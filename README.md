@@ -1,4 +1,4 @@
-# cs330: Deep Multi-Task and Meta Learning
+# CS330: Deep Multi-Task and Meta Learning
 
 0. pytorch tutorial: https://github.com/Jeiyoon/pytorch_tutorial
 <!-- 0. Tensorflow version == 2.5.0 (homeworks are implemented using 2.5.0 version) -->
