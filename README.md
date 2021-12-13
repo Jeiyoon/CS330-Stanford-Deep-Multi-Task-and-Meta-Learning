@@ -1,8 +1,9 @@
 # cs330: Deep Multi-Task and Meta Learning
 
-0. Tensorflow version == 2.5.0 (homeworks are implemented using 2.5.0 version)
+0. pytorch tutorial: https://github.com/Jeiyoon/pytorch_tutorial
+<!-- 0. Tensorflow version == 2.5.0 (homeworks are implemented using 2.5.0 version) -->
 
-1. url: https://cs330.stanford.edu/
+1. course page: https://cs330.stanford.edu/
 
 2. papers
 
